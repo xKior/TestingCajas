@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Todos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Gestión de Todos</h1>
+                <button onclick="openModal()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition">
+                    + Nueva Tarea
+                </button>
+            </div>
+
+            <!-- Tabla de Todos -->
+            <div class="overflow-x-auto">
+                <table class="w-full table-auto">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prioridad</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimiento</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="todosTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                Cargando todos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Crear/Editar -->
+    <div id="todoModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-900">Nueva Tarea</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+            </div>
+            
+            <form id="todoForm" class="space-y-4">
+                <input type="hidden" id="todoId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                    <input type="text" id="todoTitle" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                    <textarea id="todoDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
+                    <select id="todoPriority" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="0">Baja</option>
+                        <option value="1">Media</option>
+                        <option value="2">Alta</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Vencimiento</label>
+                    <input type="datetime-local" id="todoDueAt" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div id="completedDiv" class="hidden">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="todoCompleted" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="ml-2 text-sm font-medium text-gray-700">Completado</span>
+                    </label>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-md font-semibold transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-semibold transition">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Configura aquí la URL base de tu API
+        const API_BASE_URL = 'https://todoapitest.todolist.com'; // CAMBIAR ESTA URL
+
+        let todos = [];
+        let editingId = null;
+
+        // Cargar todos al iniciar
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTodos();
+        });
+
+        // Cargar todos desde la API
+        async function loadTodos() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/Todos`);
+                const result = await response.json();
+                
+                if (result.code === 200 && result.data) {
+                    todos = result.data;
+                    renderTodos();
+                } else {
+                    showMessage('Error al cargar los todos', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Error de conexión con la API', 'error');
+                document.getElementById('todosTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-red-500">
+                            Error al cargar los datos. Verifica la URL de la API.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Renderizar tabla de todos
+        function renderTodos() {
+            const tbody = document.getElementById('todosTableBody');
+            
+            if (todos.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            No hay tareas. ¡Crea una nueva!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = todos.map(todo => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">${todo.id}</td>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${escapeHtml(todo.title)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${escapeHtml(todo.description || '-')}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${todo.isCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${todo.isCompleted ? 'Completado' : 'Pendiente'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${getPriorityClass(todo.priority)}">
+                            ${getPriorityText(todo.priority)}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${formatDate(todo.dueAt)}</td>
+                    <td class="px-4 py-3 text-sm space-x-2">
+                        <button onclick="editTodo(${todo.id})" class="text-blue-600 hover:text-blue-800 font-medium">
+                            Editar
+                        </button>
+                        <button onclick="deleteTodo(${todo.id})" class="text-red-600 hover:text-red-800 font-medium">
+                            Eliminar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Abrir modal
+        function openModal(id = null) {
+            editingId = id;
+            const modal = document.getElementById('todoModal');
+            const form = document.getElementById('todoForm');
+            const modalTitle = document.getElementById('modalTitle');
+            const completedDiv = document.getElementById('completedDiv');
+            
+            form.reset();
+            
+            if (id) {
+                modalTitle.textContent = 'Editar Tarea';
+                completedDiv.classList.remove('hidden');
+                loadTodoForEdit(id);
+            } else {
+                modalTitle.textContent = 'Nueva Tarea';
+                completedDiv.classList.add('hidden');
+                document.getElementById('todoId').value = '';
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        // Cerrar modal
+        function closeModal() {
+            document.getElementById('todoModal').classList.add('hidden');
+            editingId = null;
+        }
+
+        // Cargar todo para editar
+        async function loadTodoForEdit(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/Todos/${id}`);
+                const result = await response.json();
+                
+                if (result.code === 200 && result.data) {
+                    const todo = result.data;
+                    document.getElementById('todoId').value = todo.id;
+                    document.getElementById('todoTitle').value = todo.title;
+                    document.getElementById('todoDescription').value = todo.description || '';
+                    document.getElementById('todoPriority').value = todo.priority;
+                    document.getElementById('todoCompleted').checked = todo.isCompleted;
+                    
+                    if (todo.dueAt) {
+                        const date = new Date(todo.dueAt);
+                        document.getElementById('todoDueAt').value = date.toISOString().slice(0, 16);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Error al cargar el todo', 'error');
+            }
+        }
+
+        // Manejar envío del formulario
+        document.getElementById('todoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('todoId').value;
+            const title = document.getElementById('todoTitle').value;
+            const description = document.getElementById('todoDescription').value;
+            const priority = parseInt(document.getElementById('todoPriority').value);
+            const dueAt = document.getElementById('todoDueAt').value;
+            const isCompleted = document.getElementById('todoCompleted').checked;
+            
+            const todoData = {
+                title,
+                description,
+                priority,
+                dueAt: dueAt ? new Date(dueAt).toISOString() : null
+            };
+
+            if (id) {
+                todoData.isCompleted = isCompleted;
+                await updateTodo(id, todoData);
+            } else {
+                await createTodo(todoData);
+            }
+        });
+
+        // Crear todo
+        async function createTodo(todoData) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/Todos`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(todoData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.code === 201) {
+                    showMessage('Tarea actualizada exitosamente', 'success');
+                    closeModal();
+                    loadTodos();
+                } else {
+                    showMessage(result.messages?.[0] || 'Error al actualizar la tarea', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Error de conexión', 'error');
+            }
+        }
+
+        // Actualizar todo
+        async function updateTodo(id, todoData) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/Todos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(todoData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.code === 200) {
+                    showMessage('Tarea actualizada exitosamente', 'success');
+                    closeModal();
+                    loadTodos();
+                } else {
+                    showMessage(result.messages?.[0] || 'Error al actualizar la tarea', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Error de conexión', 'error');
+            }
+        }
+
+        // Editar todo
+        function editTodo(id) {
+            openModal(id);
+        }
+
+        // Eliminar todo
+        async function deleteTodo(id) {
+            if (!confirm('¿Estás seguro de que deseas eliminar esta tarea?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/Todos/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                // Verificar si la respuesta fue exitosa (200-299)
+                if (response.ok) {
+                    showMessage('Tarea eliminada exitosamente', 'success');
+                    loadTodos();
+                } else {
+                    // Intentar leer el JSON si hay error
+                    try {
+                        const result = await response.json();
+                        showMessage(result.messages?.[0] || 'Error al eliminar la tarea', 'error');
+                    } catch {
+                        showMessage('Error al eliminar la tarea', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Error de conexión', 'error');
+            }
+        }
+
+        // Utilidades
+        function getPriorityText(priority) {
+            const priorities = ['Baja', 'Media', 'Alta'];
+            return priorities[priority] || 'N/A';
+        }
+
+        function getPriorityClass(priority) {
+            const classes = [
+                'bg-gray-100 text-gray-800',
+                'bg-blue-100 text-blue-800',
+                'bg-red-100 text-red-800'
+            ];
+            return classes[priority] || 'bg-gray-100 text-gray-800';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showMessage(message, type) {
+            const color = type === 'success' ? 'green' : 'red';
+            const alert = document.createElement('div');
+            alert.className = `fixed top-4 right-4 bg-${color}-500 text-white px-6 py-3 rounded-lg shadow-lg z-50`;
+            alert.textContent = message;
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
